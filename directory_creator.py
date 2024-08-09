@@ -71,85 +71,87 @@ class DirectoryCreator(QMainWindow):
         structure = {
             'Assets': {
                 'Accounts': {
-                    'Contents': [],
+                    'Contents': {},
                     'Pages': ['login.php', 'register.php', 'user-dashboard.php'],
-                    'Processors': [],
+                    'Processors': {},
                     'Scripts': ['accounts.js'],
-                    'Styles': [],
+                    'Styles': {},
                 },
                 'Admins': {
-                    'Contents': [],
+                    'Contents': {},
                     'Pages': ['admin-dashboard.php'],
-                    'Processors': [],
-                    'Scripts': [],
-                    'Styles': [],
+                    'Processors': {},
+                    'Scripts': {},
+                    'Styles': {},
                 },
-                'Connections': [],
                 'Extras': {
-                    'Documentations': [],
-                    'Helps': [],
-                    'Updates': [],
+                    'Connections': {},
+                    'Documentations': {},
+                    'Helps': {},
+                    'Updates': {},
                 },
                 'Website': {
-                    'Contents': [],
-                    'Images': [],
+                    'Contents': {},
+                    'Images': {},
                     'Pages': ['about-us.php', 'contact.php', 'faqs.php', 'privacy-policy.php', 'terms-conditions.php'],
-                    'Processors': [],
+                    'Processors': {},
                     'Scripts': ['main.js'],
-                    'Styles': [],
-                    'Videos': [],
+                    'Styles': {},
+                    'Videos': {},
                 },
             },
-            'index.php': [],
+            'index.php': None,  # Mark as None to indicate it's a file, not a directory
         }
 
         total_tasks = self.count_tasks(structure)
         tasks_completed = 0
 
-        def create_folders(path, structure):
+        def create_folders_and_files(path, structure):
             nonlocal tasks_completed
             try:
                 for item, content in structure.items():
                     current_path = os.path.join(path, item)
-                    if isinstance(content, dict):
-                        if not os.path.exists(current_path):
-                            os.makedirs(current_path)
-                            self.logs_area.append(f"Created directory: {current_path}")
-                        create_folders(current_path, content)
-                    else:
-                        # Create an empty directory if it's not a dict
-                        if not os.path.exists(current_path):
-                            os.makedirs(current_path)
-                            self.logs_area.append(f"Created directory: {current_path}")
-                    tasks_completed += 1
-                    self.progress_bar.setValue((tasks_completed / total_tasks) * 100)
-            except Exception as e:
-                self.logs_area.append(f"Error creating directory {path}: {str(e)}")
 
-        def create_files(path, structure):
-            nonlocal tasks_completed
-            try:
-                for item, content in structure.items():
-                    current_path = os.path.join(path, item)
                     if isinstance(content, dict):
-                        create_files(current_path, content)
+                        # Create the directory if it doesn't exist
+                        if not os.path.exists(current_path):
+                            os.makedirs(current_path)
+                            self.logs_area.append(f"Created directory: {current_path}")
+                        # Recursively create subfolders and files
+                        create_folders_and_files(current_path, content)
                     elif isinstance(content, list):
+                        # Create the directory for this list of files
+                        if not os.path.exists(current_path):
+                            os.makedirs(current_path)
+                            self.logs_area.append(f"Created directory: {current_path}")
                         for file in content:
-                            file_path = os.path.join(path, file)
+                            file_path = os.path.join(current_path, file)
                             if not os.path.exists(file_path):
                                 with open(file_path, 'w') as f:
-                                    pass
+                                    pass  # Create an empty file
                                 self.logs_area.append(f"Created file: {file_path}")
-                            tasks_completed += 1
-                            self.progress_bar.setValue((tasks_completed / total_tasks) * 100)
+                    elif content is None:  # Handle files like index.php
+                        if not os.path.exists(current_path):
+                            with open(current_path, 'w') as f:
+                                pass  # Create an empty file
+                            self.logs_area.append(f"Created file: {current_path}")
+                            
+                    tasks_completed += 1
+                    self.progress_bar.setValue(int((tasks_completed / total_tasks) * 100))
             except Exception as e:
-                self.logs_area.append(f"Error creating file in {path}: {str(e)}")
+                self.logs_area.append(f"Error creating directory or file in {path}: {str(e)}")
 
-        # Create folders first
-        create_folders(project_path, structure)
+        # Create folders and files
+        create_folders_and_files(project_path, structure)
 
-        # Create files next
-        create_files(project_path, structure)
+        self.logs_area.append("Directory structure created successfully.")
+        self.progress_bar.setValue(100)
+
+
+
+
+        # Create folders and files
+        create_folders_and_files(project_path, structure)
 
         self.logs_area.append("Directory structure created successfully.")
         self.progress_bar.setValue(100)
@@ -159,9 +161,12 @@ class DirectoryCreator(QMainWindow):
         for item in structure.values():
             if isinstance(item, dict):
                 total += self.count_tasks(item)
-            else:
+            elif isinstance(item, list):
                 total += len(item)
+            elif item is None:  # Handle the case where it's a single file like 'index.php'
+                total += 1
         return total
+
 
 # Main function to run the application
 def main():
