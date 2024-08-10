@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-=======
-Here's an updated version of the `README.md` file with detailed steps for contributing:
-
----
-
->>>>>>> 8fa9a08587ed3efa4d6c2b9aa071325d4b2f4b13
 # Project Directory Creator
 
 ## Overview
