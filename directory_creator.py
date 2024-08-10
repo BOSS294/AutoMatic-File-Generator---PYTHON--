@@ -12,16 +12,18 @@ class DirectoryCreator(ctk.CTk):
         self.configure(fg_color="#121212")
 
         # Project name input
-        self.project_name_label = ctk.CTkLabel(self, text="Enter Project Name:", text_color="white")
+        self.project_name_label = ctk.CTkLabel(self, text="Enter Project Name:", text_color="Red") # Added Red Color to make it more attractive
         self.project_name_label.place(x=50, y=50)
         self.project_name_input = ctk.CTkEntry(self, width=400, fg_color="#333", text_color="white", border_color="#555")
         self.project_name_input.place(x=260, y=50)
 
         # Directory selection button and label
-        self.dir_select_button = ctk.CTkButton(self, text="Select Directory", command=self.select_directory, fg_color="#444", text_color="white", hover_color="#555")
+        self.dir_select_button = ctk.CTkButton(self, text="Select Directory", command=self.select_directory, fg_color="#444", text_color="white", hover_color="#5cb85c") # Added green Color on selection to make it more attractive
         self.dir_select_button.place(x=50, y=100)
         self.selected_dir_label = ctk.CTkLabel(self, text="No directory selected", text_color="#aaa")
         self.selected_dir_label.place(x=210, y=100)
+
+        
 
         # Create structure button
         self.create_button = ctk.CTkButton(self, text="Create Structure", command=self.create_structure, fg_color="#5cb85c", text_color="white", hover_color="#4cae4c")
@@ -49,10 +51,10 @@ class DirectoryCreator(ctk.CTk):
     def create_structure(self):
         project_name = self.project_name_input.get()
         if not project_name:
-            messagebox.showwarning("Input Error", "Please enter a project directory name.")
+            messagebox.showwarning("Input Error", "Please enter a project directory name before proceeding.") # Added English language bit more
             return
         if not self.selected_directory:
-            messagebox.showwarning("Input Error", "Please select a directory.")
+            messagebox.showwarning("Input Error", "Please select a directory before proceeding.") # Added English Language Bit more
             return
 
         project_path = os.path.join(self.selected_directory, project_name)
@@ -92,6 +94,12 @@ class DirectoryCreator(ctk.CTk):
                     'Scripts': ['main.js'],
                     'Styles': {},
                     'Videos': {},
+                },
+                'Miscellaneous': {
+                    'Context': {},
+                    'Information': {},
+                    'File Dumping': {},
+                    'Testing Purpose': {},
                 },
             },
             'index.php': None,  # Mark as None to indicate it's a file, not a directory
@@ -138,7 +146,8 @@ class DirectoryCreator(ctk.CTk):
         # Create folders and files
         create_folders_and_files(project_path, structure)
 
-        self.append_log("Directory structure created successfully.")
+
+        self.append_log("\n\n\nDirectory structure has been created successfully\n\n\n") #English Improvement & Highlighted
         
         # Turn the progress bar green on successful completion
         self.progress_bar.configure(fg_color="#5cb85c", progress_color="#5cb85c")
