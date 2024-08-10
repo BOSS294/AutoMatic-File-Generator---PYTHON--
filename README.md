@@ -35,8 +35,14 @@ The **Project Directory Creator** is a Python-based application that allows user
 
 1. **Enter Project Name**: Provide a name for your project in the input field.
 2. **Select Directory**: Choose the base directory where the project structure should be created.
-3. **Create Structure**: Click the "Create Structure" button to generate the folders and files.
-4. **Monitor Progress**: Watch the progress bar and logs area for feedback on the structure creation process.
+   <img height=550 width=650 src="https://github.com/jindalpriyanshu101/AutoMatic-File-Generator/blob/main/images/app-window.png">
+ 
+4. **Create Structure**: Click the "Create Structure" button to generate the folders and files.
+   <img height=550 width=650 src="https://github.com/jindalpriyanshu101/AutoMatic-File-Generator/blob/main/images/example.png">
+   
+6. **Monitor Progress**: Watch the progress bar and logs area for feedback on the structure creation process. This is how your structure will look like.
+
+   <img src="https://github.com/jindalpriyanshu101/AutoMatic-File-Generator/blob/main/images/output.png">
 
 ## Directory Structure
 
