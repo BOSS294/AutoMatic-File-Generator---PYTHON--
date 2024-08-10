@@ -1,71 +1,65 @@
-import sys
 import os
-from PyQt5 import QtWidgets, QtGui, QtCore
-from PyQt5.QtWidgets import QFileDialog, QMainWindow, QApplication, QMessageBox
+import customtkinter as ctk
+from tkinter import filedialog, messagebox, Tk
 
-class DirectoryCreator(QMainWindow):
+class DirectoryCreator(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.initUI()
 
-    def initUI(self):
-        # Set the main window properties
-        self.setWindowTitle('Project Directory Creator')
-        self.setGeometry(100, 100, 800, 600)  # Set a specific size for the window
-        self.setStyleSheet("background-color: #121212; color: white;")
+        # Configure window
+        self.title("Project Directory Creator")
+        self.geometry("800x600")
+        self.configure(fg_color="#121212")
 
         # Project name input
-        self.project_name_label = QtWidgets.QLabel('Enter Project Name:', self)
-        self.project_name_label.setGeometry(QtCore.QRect(50, 50, 200, 30))
-        self.project_name_input = QtWidgets.QLineEdit(self)
-        self.project_name_input.setGeometry(QtCore.QRect(260, 50, 400, 30))
-        self.project_name_input.setStyleSheet("background-color: #333; color: white; border: 1px solid #555;")
+        self.project_name_label = ctk.CTkLabel(self, text="Enter Project Name:", text_color="white")
+        self.project_name_label.place(x=50, y=50)
+        self.project_name_input = ctk.CTkEntry(self, width=400, fg_color="#333", text_color="white", border_color="#555")
+        self.project_name_input.place(x=260, y=50)
 
         # Directory selection button and label
-        self.dir_select_button = QtWidgets.QPushButton('Select Directory', self)
-        self.dir_select_button.setGeometry(QtCore.QRect(50, 100, 150, 30))
-        self.dir_select_button.setStyleSheet("background-color: #444; color: white; border: 1px solid #555;")
-        self.dir_select_button.clicked.connect(self.select_directory)
-
-        self.selected_dir_label = QtWidgets.QLabel('No directory selected', self)
-        self.selected_dir_label.setGeometry(QtCore.QRect(210, 100, 550, 30))
-        self.selected_dir_label.setStyleSheet("color: #aaa;")
+        self.dir_select_button = ctk.CTkButton(self, text="Select Directory", command=self.select_directory, fg_color="#444", text_color="white", hover_color="#555")
+        self.dir_select_button.place(x=50, y=100)
+        self.selected_dir_label = ctk.CTkLabel(self, text="No directory selected", text_color="#aaa")
+        self.selected_dir_label.place(x=210, y=100)
 
         # Create structure button
-        self.create_button = QtWidgets.QPushButton('Create Structure', self)
-        self.create_button.setGeometry(QtCore.QRect(50, 150, 150, 30))
-        self.create_button.setStyleSheet("background-color: #5cb85c; color: white; border: 1px solid #555;")
-        self.create_button.clicked.connect(self.create_structure)
+        self.create_button = ctk.CTkButton(self, text="Create Structure", command=self.create_structure, fg_color="#5cb85c", text_color="white", hover_color="#4cae4c")
+        self.create_button.place(x=50, y=150)
 
         # Logs area
-        self.logs_label = QtWidgets.QLabel('Logs:', self)
-        self.logs_label.setGeometry(QtCore.QRect(50, 200, 100, 30))
-        self.logs_area = QtWidgets.QTextEdit(self)
-        self.logs_area.setGeometry(QtCore.QRect(50, 230, 700, 300))
-        self.logs_area.setStyleSheet("background-color: #222; color: green; border: 1px solid #555;")
-        self.logs_area.setReadOnly(True)
+        self.logs_label = ctk.CTkLabel(self, text="Logs:", text_color="white")
+        self.logs_label.place(x=50, y=200)
+        self.logs_area = ctk.CTkTextbox(self, width=700, height=300, fg_color="#222", text_color="green", border_color="#555")
+        self.logs_area.place(x=50, y=230)
+        self.logs_area.configure(state="disabled")
 
         # Progress bar
-        self.progress_bar = QtWidgets.QProgressBar(self)
-        self.progress_bar.setGeometry(QtCore.QRect(50, 550, 700, 30))
-        self.progress_bar.setStyleSheet("QProgressBar::chunk {background-color: #5cb85c;}")
+        self.progress_bar = ctk.CTkProgressBar(self, width=700, fg_color="#d9534f", progress_color="#d9534f", mode="determinate")
+        self.progress_bar.place(x=50, y=550)
+        self.progress_bar.set(0)
 
         self.selected_directory = None
 
     def select_directory(self):
-        self.selected_directory = QFileDialog.getExistingDirectory(self, "Select Directory")
-        self.selected_dir_label.setText(self.selected_directory if self.selected_directory else "No directory selected")
+        self.selected_directory = filedialog.askdirectory(title="Select Directory")
+        self.selected_dir_label.configure(text=self.selected_directory if self.selected_directory else "No directory selected")
+        self.reset_progress_bar()
 
     def create_structure(self):
-        project_name = self.project_name_input.text()
+        project_name = self.project_name_input.get()
         if not project_name:
-            QMessageBox.warning(self, "Input Error", "Please enter a project directory name.")
+            messagebox.showwarning("Input Error", "Please enter a project directory name.")
             return
         if not self.selected_directory:
-            QMessageBox.warning(self, "Input Error", "Please select a directory.")
+            messagebox.showwarning("Input Error", "Please select a directory.")
             return
 
         project_path = os.path.join(self.selected_directory, project_name)
+        
+        # Reset progress bar to red
+        self.progress_bar.configure(fg_color="#d9534f", progress_color="#d9534f")
+        self.progress_bar.set(0)
 
         # Define the structure
         structure = {
@@ -116,45 +110,39 @@ class DirectoryCreator(QMainWindow):
                         # Create the directory if it doesn't exist
                         if not os.path.exists(current_path):
                             os.makedirs(current_path)
-                            self.logs_area.append(f"Created directory: {current_path}")
+                            self.append_log(f"Created directory: {current_path}")
                         # Recursively create subfolders and files
                         create_folders_and_files(current_path, content)
                     elif isinstance(content, list):
                         # Create the directory for this list of files
                         if not os.path.exists(current_path):
                             os.makedirs(current_path)
-                            self.logs_area.append(f"Created directory: {current_path}")
+                            self.append_log(f"Created directory: {current_path}")
                         for file in content:
                             file_path = os.path.join(current_path, file)
                             if not os.path.exists(file_path):
                                 with open(file_path, 'w') as f:
                                     pass  # Create an empty file
-                                self.logs_area.append(f"Created file: {file_path}")
+                                self.append_log(f"Created file: {file_path}")
                     elif content is None:  # Handle files like index.php
                         if not os.path.exists(current_path):
                             with open(current_path, 'w') as f:
                                 pass  # Create an empty file
-                            self.logs_area.append(f"Created file: {current_path}")
-                            
+                            self.append_log(f"Created file: {current_path}")
+
                     tasks_completed += 1
-                    self.progress_bar.setValue(int((tasks_completed / total_tasks) * 100))
+                    self.progress_bar.set(tasks_completed / total_tasks)
             except Exception as e:
-                self.logs_area.append(f"Error creating directory or file in {path}: {str(e)}")
+                self.append_log(f"Error creating directory or file in {path}: {str(e)}")
 
         # Create folders and files
         create_folders_and_files(project_path, structure)
 
-        self.logs_area.append("Directory structure created successfully.")
-        self.progress_bar.setValue(100)
-
-
-
-
-        # Create folders and files
-        create_folders_and_files(project_path, structure)
-
-        self.logs_area.append("Directory structure created successfully.")
-        self.progress_bar.setValue(100)
+        self.append_log("Directory structure created successfully.")
+        
+        # Turn the progress bar green on successful completion
+        self.progress_bar.configure(fg_color="#5cb85c", progress_color="#5cb85c")
+        self.progress_bar.set(1)
 
     def count_tasks(self, structure):
         total = 0
@@ -167,13 +155,19 @@ class DirectoryCreator(QMainWindow):
                 total += 1
         return total
 
+    def append_log(self, message):
+        self.logs_area.configure(state="normal")
+        self.logs_area.insert(ctk.END, message + "\n")
+        self.logs_area.configure(state="disabled")
+        self.logs_area.yview(ctk.END)
+
+    def reset_progress_bar(self):
+        # Reset the progress bar to red when selecting a new directory
+        self.progress_bar.configure(fg_color="#d9534f", progress_color="#d9534f")
+        self.progress_bar.set(0)
 
 # Main function to run the application
-def main():
-    app = QApplication(sys.argv)
-    ex = DirectoryCreator()
-    ex.show()
-    sys.exit(app.exec_())
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    app = ctk.CTk()
+    creator = DirectoryCreator()
+    creator.mainloop()
