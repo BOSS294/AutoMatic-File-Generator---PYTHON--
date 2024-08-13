@@ -11,6 +11,7 @@ The **Project Directory Creator** is a Python-based application that allows user
 - **Error Handling**: User-friendly error messages if the project name is not entered or the directory is not selected.
 - **Logs Area**: A dedicated section to display logs of all directories and files created during the process.
 - **Predefined Structure**: Automatically generates a set of folders and files typical for web development projects.
+- **Sqlite Integration**: Sqlite for log saving
 
 ## Installation
 
