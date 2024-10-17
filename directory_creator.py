@@ -91,16 +91,21 @@ class DirectoryCreator(ctk.CTk):
                 'Accounts': {
                     'Contents': {},
                     'Pages': ['login.php', 'register.php', 'user-dashboard.php'],
-                    'Processors': {},
+                    'Processors': ['login-endpoint.php','register-endpoint.php','userinfo-endpoint.php','logout-endpoint.php'],
                     'Scripts': ['accounts.js'],
                     'Styles': {},
                 },
                 'Admins': {
-                    'Contents': {},
-                    'Pages': ['admin-dashboard.php'],
-                    'Processors': {},
-                    'Scripts': {},
+                    'Contents': {'admin-login-page.php','admin-cards.php','admin-analytics.php'},
+                    'Pages': ['admin-dashboard.php','admin-access.php','admin-logout.php'],
+                    'Processors': ['admin-access-endpoint.php','admin-logout-endpoint.php','admin-logout-endpoint.php'],
+                    'Scripts': ['admin-notifications.js'],
+                    'Resources': ['anav.php'],
                     'Styles': {},
+                },
+                'Resources': {
+                    'File Dumping': {},
+
                 },
                 'Extras': {
                     'Connections': {},
