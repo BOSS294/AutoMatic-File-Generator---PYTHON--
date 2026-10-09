@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHP Project Engineering Patterns</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Design tokens */
+:root {
+  /* Layout: Dense technical reference with breathing room for code */
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --fg: #1a1a1a;
+  --fg-secondary: #525252;
+  --fg-tertiary: #737373;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-subtle: #eff6ff;
+  --success: #10b981;
+  --success-bg: #d1fae5;
+  --warning: #f59e0b;
+  --warning-bg: #fef3c7;
+  --danger: #ef4444;
+  --danger-bg: #fee2e2;
+  --code-bg: #f5f5f5;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0a0a;
+    --surface: #171717;
+    --surface-elevated: #262626;
+    --fg: #fafafa;
+    --fg-secondary: #a3a3a3;
+    --fg-tertiary: #737373;
+    --border: #262626;
+    --border-strong: #404040;
+    --accent: #60a5fa;
+    --accent-hover: #3b82f6;
+    --accent-subtle: #1e3a8a;
+    --success: #34d399;
+    --success-bg: #064e3b;
+    --warning: #fbbf24;
+    --warning-bg: #78350f;
+    --danger: #f87171;
+    --danger-bg: #7f1d1d;
+    --code-bg: #1a1a1a;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -2px rgba(0,0,0,0.4);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --surface: #171717;
+  --surface-elevated: #262626;
+  --fg: #fafafa;
+  --fg-secondary: #a3a3a3;
+  --fg-tertiary: #737373;
+  --border: #262626;
+  --border-strong: #404040;
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --accent-subtle: #1e3a8a;
+  --success: #34d399;
+  --success-bg: #064e3b;
+  --warning: #fbbf24;
+  --warning-bg: #78350f;
+  --danger: #f87171;
+  --danger-bg: #7f1d1d;
+  --code-bg: #1a1a1a;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -2px rgba(0,0,0,0.4);
+  color-scheme: dark;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  padding-block: 32px;
+  padding-inline: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 2px solid var(--border-strong);
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  text-wrap: balance;
+  color: var(--fg);
+}
+
+.header .subtitle {
+  font-size: 1.125rem;
+  color: var(--fg-secondary);
+  margin-bottom: 20px;
+}
+
+.projects {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.project-badge {
+  padding: 8px 16px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+}
+
+/* Theme toggle */
+.theme-toggle {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: all 0.2s;
+  z-index: 100;
+}
+
+.theme-toggle:hover {
+  background: var(--border);
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--fg);
+}
+
+/* Navigation tabs */
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 2px solid var(--border);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tab-button {
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  color: var(--fg-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+}
+
+.tab-button:hover {
+  color: var(--fg);
+  background: var(--code-bg);
+}
+
+.tab-button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Content sections */
+.content-section {
+  display: none;
+}
+
+.content-section.active {
+  display: block;
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-icon {
+  width: 24px;
+  height: 24px;
+  stroke: var(--accent);
+}
+
+.card h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.card h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin-top: 20px;
+  margin-bottom: 12px;
+}
+
+.card h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.card p {
+  color: var(--fg-secondary);
+  margin-bottom: 12px;
+}
+
+.card ul, .card ol {
+  color: var(--fg-secondary);
+  padding-left: 24px;
+  margin-bottom: 12px;
+}
+
+.card li {
+  margin-bottom: 6px;
+}
+
+/* Code blocks */
+.code-block {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.875rem;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.code-block pre {
+  margin: 0;
+  white-space: pre;
+  color: var(--fg);
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.875em;
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent);
+}
+
+/* Labels */
+.label {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.label.identical { background: var(--success-bg); color: var(--success); }
+.label.similar { background: var(--warning-bg); color: var(--warning); }
+.label.different { background: var(--danger-bg); color: var(--danger); }
+
+/* Feature grid */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.feature-item {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.feature-item:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.feature-item h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 8px 0;
+}
+
+.feature-item p {
+  font-size: 0.875rem;
+  color: var(--fg-secondary);
+  margin: 0;
+}
+
+/* Comparison table */
+.comparison-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 16px;
+  overflow-x: auto;
+  display: block;
+}
+
+.comparison-table table {
+  width: 100%;
+  min-width: 600px;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison-table th {
+  background: var(--code-bg);
+  font-weight: 600;
+  color: var(--fg);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.comparison-table td {
+  color: var(--fg-secondary);
+  font-size: 0.9375rem;
+}
+
+.comparison-table tr:hover td {
+  background: var(--code-bg);
+}
+
+/* Checklist */
+.checklist {
+  list-style: none;
+  padding: 0;
+}
+
+.checklist li {
+  padding: 12px 16px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.checklist li:hover {
+  border-color: var(--accent);
+}
+
+.checklist li::before {
+  content: '✓';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background: var(--success);
+  color: white;
+  border-radius: 4px;
+  text-align: center;
+  line-height: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Architecture diagram */
+.arch-diagram {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  overflow-x: auto;
+}
+
+.arch-level {
+  margin-bottom: 16px;
+}
+
+.arch-level-title {
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.arch-item {
+  color: var(--fg-secondary);
+  padding-left: 20px;
+  position: relative;
+}
+
+.arch-item::before {
+  content: '├─';
+  position: absolute;
+  left: 0;
+  color: var(--border-strong);
+}
+
+.arch-item.last::before {
+  content: '└─';
+}
+
+/* Stats */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.stat-card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body {
+    padding-inline: 16px;
+  }
+
+  .header h1 {
+    font-size: 1.875rem;
+  }
+
+  .theme-toggle {
+    top: 16px;
+    right: 16px;
+  }
+
+  .nav-tabs {
+    gap: 4px;
+  }
+
+  .tab-button {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+  }
+
+  .card {
+    padding: 20px;
+  }
+}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+  <svg class="sun-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/>
+    <line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>
+</button>
+
+<div class="container">
+  <header class="header">
+    <h1>PHP Project Engineering Patterns</h1>
+    <p class="subtitle">Common implementations across modular e-commerce and career platforms</p>
+    <div class="projects">
+      <span class="project-badge">NileAndSinaiV2 (Jewelry E-commerce)</span>
+      <span class="project-badge">NexPlacify (Career Intelligence)</span>
+    </div>
+  </header>
+
+  <nav class="nav-tabs">
+    <button class="tab-button active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-button" onclick="switchTab('structure')">Architecture</button>
+    <button class="tab-button" onclick="switchTab('connector')">Connector Layer</button>
+    <button class="tab-button" onclick="switchTab('api')">API Pattern</button>
+    <button class="tab-button" onclick="switchTab('security')">Security</button>
+    <button class="tab-button" onclick="switchTab('database')">Database</button>
+    <button class="tab-button" onclick="switchTab('checklist')">Checklists</button>
+  </nav>
+
+  <!-- Overview Section -->
+  <div id="overview" class="content-section active">
+    <div class="card">
+      <div class="card-header">
+        <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h2>Project Comparison</h2>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card">
+          <span class="stat-value">100%</span>
+          <span class="stat-label">Connector Match</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">PHP 8+</span>
+          <span class="stat-label">Strict Types</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">Modular</span>
+          <span class="stat-label">Architecture</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">RESTful</span>
+          <span class="stat-label">API Design</span>
+        </div>
+      </div>
+
+      <h3>Shared Principles</h3>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h4>Connector Pattern</h4>
+          <p>Identical infrastructure layer for Auth, Database, Security, and Helpers</p>
+        </div>
+        <div class="feature-item">
+          <h4>Service Layer</h4>
+          <p>Business logic encapsulated in dedicated service classes</p>
+        </div>
+        <div class="feature-item">
+          <h4>Security-First</h4>
+          <p>CSRF, Origin validation, Rate limiting, Security headers</p>
+        </div>
+        <div class="feature-item">
+          <h4>Type Safety</h4>
+          <p>declare(strict_types=1) throughout with comprehensive type hints</p>
+        </div>
+        <div class="feature-item">
+          <h4>Database Abstraction</h4>
+          <p>PDO with connection pooling and QueryBuilder pattern</p>
+        </div>
+        <div class="feature-item">
+          <h4>API Versioning</h4>
+          <p>RESTful endpoints with /api/v1/ structure</p>
+        </div>
+      </div>
+
+      <h3>Key Differences</h3>
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Aspect</th>
+              <th>NileAndSinaiV2</th>
+              <th>NexPlacify</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Domain</strong></td>
+              <td>Jewelry E-commerce</td>
+              <td>Career Intelligence Platform</td>
+            </tr>
+            <tr>
+              <td><strong>Complexity</strong></td>
+              <td>Simpler, product-focused</td>
+              <td>Complex with AI integration</td>
+            </tr>
+            <tr>
+              <td><strong>Admin Layer</strong></td>
+              <td>No dedicated admin section</td>
+              <td>Full admin portal (Assets/Admins/)</td>
+            </tr>
+            <tr>
+              <td><strong>Authentication</strong></td>
+              <td>Session + JWT</td>
+              <td>Session + JWT + Google OAuth</td>
+            </tr>
+            <tr>
+              <td><strong>External Services</strong></td>
+              <td>TCPDF for invoices</td>
+              <td>Groq AI, Resume parsing</td>
+            </tr>
+            <tr>
+              <td><strong>Accounts System</strong></td>
+              <td>Basic customer accounts</td>
+              <td>Extensive onboarding, profiles, resumes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Structure Section -->
+  <div id="structure" class="content-section">
+    <div class="card">
+      <div class="card-header">
+        <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+        </svg>
+        <h2>Directory Structure</h2>
+      </div>
+
+      <span class="label identical">✓ Identical Core</span>
+
+      <div class="arch-diagram">
+        <div class="arch-level">
+          <div class="arch-level-title">project-root/</div>
+          <div class="arch-item">index.php (Front controller)</div>
+          <div class="arch-item">composer.json & composer.lock</div>
+          <div class="arch-item">.env (not tracked) & .env.example</div>
+          <div class="arch-item last">.gitignore</div>
+        </div>
+
+        <div class="arch-level">
+          <div class="arch-level-title">Assets/</div>
+          <div class="arch-item"><strong>Connector/</strong> — Infrastructure layer (100% identical)</div>
+          <div class="arch-item">├─ _bootstrap.php</div>
+          <div class="arch-item">├─ connector.php</div>
+          <div class="arch-item">├─ Auth/ (JWT, Session, Token, Permissions)</div>
+          <div class="arch-item">├─ Database/ (PDO, QueryBuilder)</div>
+          <div class="arch-item">├─ Security/ (CSRF, Headers, RateLimiter)</div>
+          <div class="arch-item">├─ Logger/ (Structured logging)</div>
+          <div class="arch-item">├─ Helpers/ (Response, Sanitizer, Validator)</div>
+          <div class="arch-item">├─ Services/ (Cache, Config, Health)</div>
+          <div class="arch-item">└─ Exceptions/ (Custom exception hierarchy)</div>
+        </div>
+
+        <div class="arch-level">
+          <div class="arch-level-title">Assets/Website/</div>
+          <div class="arch-item">Contents/ (Modular page components)</div>
+          <div class="arch-item">├─ Landing/ (Hero sections: NS-*, NX-*)</div>
+          <div class="arch-item">└─ Pages/ (Specific page modules)</div>
+          <div class="arch-item">Pages/ (Rendered final pages)</div>
+          <div class="arch-item">Api/ (REST endpoints)</div>
+          <div class="arch-item">├─ V1/ (NexPlacify: Accounts, Jobs, Admin)</div>
+          <div class="arch-item">└─ Products|Pages/ (NileAndSinai structure)</div>
+        </div>
+
+        <div class="arch-level">
+          <div class="arch-level-title">Assets/Services/</div>
+          <div class="arch-item">Accounts/ (Account management)</div>
+          <div class="arch-item">Profile/ (User profiles)</div>
+          <div class="arch-item">Resume/ (NexPlacify: parsing & analysis)</div>
+          <div class="arch-item">AI/ (NexPlacify: Groq integration)</div>
+          <div class="arch-item last">Products/ (NileAndSinai: catalog logic)</div>
+        </div>
+
+        <div class="arch-level">
+          <div class="arch-level-title">Assets/Modules/</div>
+          <div class="arch-item">nav.php (Site navigation)</div>
+          <div class="arch-item">footer.php (Site footer)</div>
+          <div class="arch-item">base.css (Shared styles)</div>
+          <div class="arch-item last">shared-scripts.js (Common JS)</div>
+        </div>
+
+        <div class="arch-level">
+          <div class="arch-level-title">Assets/Extras/</div>
+          <div class="arch-item">Documentations/ (Architecture docs)</div>
+          <div class="arch-item">Sqls/ (Migrations & schema)</div>
+          <div class="arch-item last">Updates/ (Changelogs)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector Layer Section -->
+  <div id="connector" class="content-section">
+    <div class="card">
+      <div class="card-header">
+        <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <h2>Connector Layer Components</h2>
+      </div>
+
+      <span class="label identical">✓ 100% Identical</span>
+
+      <h3>Core Classes</h3>
+      <div class="code-block"><pre>Connector/
+├── connector.php
+│   ├── class OTAEnv              # Environment variable loading
+│   ├── class OTASecurity         # Security headers, HTTPS, origin validation
+│   └── class OTADatabase         # PDO connection, health checks
+│
+├── Auth/
+│   ├── Session.php              # Session management with fingerprinting
+│   ├── JWT.php                  # Token generation & validation
+│   ├── Token.php                # API token handling
+│   └── Permissions.php          # Role-based access control
+│
+├── Database/
+│   ├── Database.php             # PDO wrapper with pooling
+│   └── QueryBuilder.php         # Fluent SQL builder
+│
+├── Security/
+│   ├── CSRF.php                 # Token generation & validation
+│   ├── Headers.php              # CSP, X-Frame-Options, HSTS
+│   ├── OriginValidator.php      # CORS & origin checks
+│   ├── DeviceFingerprint.php    # Client identification
+│   └── RateLimiter.php          # Request throttling
+│
+├── Logger/
+│   └── Logger.php               # SQLite-based structured logging
+│
+├── Helpers/
+│   ├── Response.php             # JSON response formatter
+│   ├── Sanitizer.php            # Input sanitization
+│   ├── Validator.php            # Data validation
+│   └── Utilities.php            # Common helper functions
+│
+├── Services/
+│   ├── Cache.php                # Caching layer
+│   ├── Config.php               # Configuration management
+│   ├── Health.php               # System health checks
+│   └── ApiExceptionHandler.php  # Centralized error handling
+│
+└── Exceptions/
+    ├── AuthenticationException.php
+    ├── AuthorizationException.php
+    ├── ValidationException.php
+    ├── RateLimitException.php
+    └── SecurityException.php</pre></div>
+
+      <h3>Bootstrap Pattern</h3>
+      <p>Every API endpoint initializes via <code>nsa_bootstrap()</code>:</p>
+      <div class="code-block"><pre>&lt;?php
+declare(strict_types=1);
+require_once dirname(__DIR__, 4) . '/Connector/_bootstrap.php';
+
+nsa_bootstrap([
+    'security' => true,        // Apply security headers
+    'session' => true,         // Start session management
+    'methods' => ['GET'],      // Allowed HTTP methods
+    'json' => true,            // Set JSON content type
+]);</pre></div>
+    </div>
+  </div>
+
+  <!-- API Pattern Section -->
+  <div id="api" class="content-section">
+    <div class="card">
+      <div class="card-header">
+        <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+        </svg>
+        <h2>API Creation Pattern</h2>
+      </div>
+
+      <h3>Standard REST Endpoint Template</h3>
+      <div class="code-block"><pre>&lt;?php
+declare(strict_types=1);
+
+// 1. Include bootstrap
+require_once dirname(__DIR__, 4) . '/Connector/_bootstrap.php';
+
+// 2. Initialize with config
+nsa_bootstrap([
+    'security' => true,
+    'session' => true,
+    'methods' => ['GET', 'POST'],
+    'json' => true,
+]);
+
+// 3. Authenticate
+$userId = $_SESSION['user_id'] ?? null;
+if (!$userId) {
+    nsa_json_response(['success' => false, 'message' => 'Unauthorized'], 401);
+}
+
+// 4. Validate CSRF (for POST/PUT/DELETE)
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    $csrf = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!nsa_validate_csrf($csrf)) {
+        nsa_json_response(['success' => false, 'message' => 'Invalid CSRF token'], 403);
+    }
+}
+
+// 5. Get dependencies
+$pdo = nsa_db();
+$service = new ProfileService($pdo);
+
+// 6. Process request
+try {
+    $data = $service->getProfile($userId);
+    nsa_json_response([
+        'success' => true,
+        'data' => $data
+    ]);
+} catch (Exception $e) {
+    nsa_log_error($e->getMessage());
+    nsa_json_response([
+        'success' => false,
+        'message' => 'Internal server error'
+    ], 500);
+}</pre></div>
+
+      <h3>Response Format</h3>
+      <p>Both projects use standardized JSON responses:</p>
+      <div class="code-block"><pre>// Success
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional success message"
+}
+
+// Error
+{
+  "success": false,
+  "message": "Error description",
+  "errors": { ... }  // Optional validation errors
+}</pre></div>
+
+      <h3>Service Layer Integration</h3>
+      <div class="code-block"><pre>class ProfileService {
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo) {
+        $this->pdo = $pdo;
+    }
+
+    public function getProfile(int $userId): array {
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM profiles WHERE user_id = ?"
+        );
+        $stmt->execute([$userId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function updateProfile(int $userId, array $data): bool {
+        // Business logic here
+        return true;
+    }
+}</pre></div>
+    </div>
+  </div>
+
+  <!-- Security Section -->
+  <div id="security" class="content-section">
+    <div class="card">
+      <div class="card-header">
+        <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        <h2>Security Implementation</h2>
+      </div>
+
+      <h3>1. Security Headers</h3>
+      <div class="code-block"><pre>// Applied via nsa_bootstrap(['security' => true])
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'
+X-Frame-Options: SAMEORIGIN
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()</pre></div>
+
+      <h3>2. CSRF Protection</h3>
+      <div class="code-block"><pre>// Generate token
+$token = nsa_generate_csrf();
+$_SESSION['csrf_token'] = $token;
+
+// Validate token
+$submitted = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'];
+if (!nsa_validate_csrf($submitted)) {
+    nsa_json_response(['success' => false, 'message' => 'CSRF validation failed'], 403);
+}</pre></div>
+
+      <h3>3. Origin Validation</h3>
+      <div class="code-block"><pre>// In nsa_bootstrap()
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowed = [
+    'https://nexplacify.pro',
+    'https://nileandsinai.com'
+];
+
+if (!in_array($origin, $allowed)) {
+    header('HTTP/1.1 403 Forbidden');
+    exit;
+}</pre></div>
+
+      <h3>4. Rate Limiting</h3>
+      <div class="code-block"><pre>use Connector\Security\RateLimiter;
+
+$limiter = new RateLimiter($pdo);
+$identifier = $_SERVER['REMOTE_ADDR'] . ':' . $_SESSION['user_id'] ?? 'guest';
+
+if (!$limiter->check($identifier, 60, 5)) {  // 5 requests per 60 seconds
+    nsa_json_response(['success' => false, 'message' => 'Rate limit exceeded'], 429);
+}</pre></div>
+
+      <h3>5. Authentication Methods</h3>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <h4>Session-Based</h4>
+          <p>Default for web requests with fingerprinting and secure cookie settings</p>
+        </div>
+        <div class="feature-item">
+          <h4>JWT Tokens</h4>
+          <p>Stateless authentication for API consumers with configurable expiry</p>
+        </div>
+        <div class="feature-item">
+          <h4>Google OAuth</h4>
+          <p>NexPlacify: Third-party authentication with state management</p>
+        </div>
+        <div class="feature-item">
+          <h4>Device Fingerprinting</h4>
+          <p>Tracks user agents, IPs, and request patterns for anomaly detection</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Database Section -->
+  <div id="database" class="content-section">
+    <div class="card">
+      <div class="card-header">
+        <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+        </svg>
+        <h2>Database & Migrations</h2>
+      </div>
+
+      <h3>Connection Management</h3>
+      <div class="code-block"><pre>// PDO with connection pooling
+$pdo = nsa_db();  // Returns singleton PDO instance
+
+// Multi-driver support
+DB_DRIVER=mysql|pgsql|sqlite
+DB_HOST=localhost
+DB_PORT=3306|5432
+DB_NAME=database_name
+DB_USER=username
+DB_PASSWORD=password
+DB_CHARSET=utf8mb4</pre></div>
+
+      <h3>QueryBuilder Pattern</h3>
+      <div class="code-block"><pre>use Connector\Database\QueryBuilder;
+
+$qb = new QueryBuilder($pdo);
+
+// SELECT with conditions
+$users = $qb->select('users')
+    ->where('status', '=', 'active')
+    ->where('created_at', '>', '2024-01-01')
+    ->orderBy('id', 'DESC')
+    ->limit(10)
+    ->get();
+
+// INSERT
+$qb->insert('users', [
+    'email' => 'user@example.com',
+    'password' => password_hash($password, PASSWORD_ARGON2ID),
+    'created_at' => date('Y-m-d H:i:s')
+]);
+
+// UPDATE
+$qb->update('users', ['status' => 'verified'])
+    ->where('id', '=', $userId)
+    ->execute();
+
+// DELETE
+$qb->delete('users')
+    ->where('status', '=', 'deleted')
+    ->where('deleted_at', '<', date('Y-m-d', strtotime('-30 days')))
+    ->execute();</pre></div>
+
+      <h3>Migration Files</h3>
+      <p>Located in <code>Assets/Extras/Sqls/</code> with semantic versioning:</p>
+      <div class="code-block"><pre>nexplacify_auth_schema_v2.sql
+nexplacify_oauth_state_schema_v1.sql
+nexplacify_onboarding_schema_v1.sql
+profile_workspace_schema-v1.sql
+resume_intelligence_schema-v2.sql
+readiness_schema-v3.sql
+
+nileandsinai_products_schema_v1.sql
+nileandsinai_orders_schema_v2.sql</pre></div>
+
+      <h3>Schema Best Practices</h3>
+      <ul class="checklist">
+        <li>Use INT UNSIGNED for auto-increment IDs</li>
+        <li>Include created_at and updated_at timestamps</li>
+        <li>Add indexes on foreign keys and frequently queried columns</li>
+        <li>Use ENUM or VARCHAR with constraints for status fields</li>
+        <li>Normalize data but denormalize for read-heavy tables</li>
+        <li>Include soft delete columns (deleted_at) for audit trails</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Checklist Section -->
+  <div id="checklist" class="content-section">
+    <div class="card">
+      <div class="card-header">
+        <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h2>Implementation Checklists</h2>
+      </div>
+
+      <h3>API Endpoint Creation</h3>
+      <ol class="checklist">
+        <li>Create file in appropriate Api/ subdirectory with semantic naming</li>
+        <li>Add declare(strict_types=1) at the top</li>
+        <li>Include Connector/_bootstrap.php with correct relative path</li>
+        <li>Call nsa_bootstrap() with security, session, methods, and json flags</li>
+        <li>Implement authentication check and return 401 if unauthorized</li>
+        <li>Validate CSRF token for mutating operations (POST/PUT/DELETE)</li>
+        <li>Instantiate required service classes with PDO dependency</li>
+        <li>Wrap business logic in try-catch with proper error responses</li>
+        <li>Return standardized JSON response with success boolean</li>
+        <li>Log errors with nsa_log_error() for monitoring</li>
+        <li>Test endpoint in both authenticated and unauthenticated states</li>
+      </ol>
+
+      <h3>Service Class Creation</h3>
+      <ol class="checklist">
+        <li>Create file in Assets/Services/ under appropriate domain folder</li>
+        <li>Use namespace matching directory structure</li>
+        <li>Add strict type declaration</li>
+        <li>Inject PDO (and other dependencies) via constructor</li>
+        <li>Keep methods focused on single responsibility</li>
+        <li>Use QueryBuilder for complex queries, prepared statements otherwise</li>
+        <li>Return typed arrays or objects (use return type hints)</li>
+        <li>Throw domain-specific exceptions for error conditions</li>
+        <li>Document public methods with PHPDoc blocks</li>
+        <li>Write unit tests for business logic</li>
+      </ol>
+
+      <h3>Database Schema Creation</h3>
+      <ol class="checklist">
+        <li>Name file with semantic versioning (tablename_v1.sql)</li>
+        <li>Store in Assets/Extras/Sqls/</li>
+        <li>Include IF NOT EXISTS in CREATE statements</li>
+        <li>Define primary keys as INT UNSIGNED AUTO_INCREMENT</li>
+        <li>Add foreign key constraints with ON DELETE/UPDATE actions</li>
+        <li>Create indexes on foreign keys and query-heavy columns</li>
+        <li>Include created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP</li>
+        <li>Include updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</li>
+        <li>Add comments explaining non-obvious column purposes</li>
+        <li>Document schema changes in Assets/Extras/Updates/</li>
+      </ol>
+
+      <h3>Security Checklist</h3>
+      <ol class="checklist">
+        <li>Enable security headers via nsa_bootstrap(['security' => true])</li>
+        <li>Validate all user inputs with Sanitizer and Validator helpers</li>
+        <li>Use parameterized queries (never string concatenation for SQL)</li>
+        <li>Implement CSRF protection on all state-changing operations</li>
+        <li>Check origin header against whitelist for AJAX requests</li>
+        <li>Apply rate limiting to authentication and sensitive endpoints</li>
+        <li>Hash passwords with PASSWORD_ARGON2ID (never MD5 or SHA)</li>
+        <li>Use HTTPS in production (check with nsa_enforce_https())</li>
+        <li>Implement proper session management with fingerprinting</li>
+        <li>Log security events for audit trail</li>
+        <li>Never expose internal error details to clients</li>
+        <li>Set restrictive file permissions on .env and sensitive configs</li>
+      </ol>
+
+      <h3>Pre-Deployment Checklist</h3>
+      <ol class="checklist">
+        <li>All .env.example variables documented with example values</li>
+        <li>composer.lock committed to version control</li>
+        <li>Database migrations tested on clean database</li>
+        <li>All API endpoints return proper HTTP status codes</li>
+        <li>Error logging configured and tested</li>
+        <li>Security headers verified with browser dev tools</li>
+        <li>CSRF protection tested with invalid tokens</li>
+        <li>Rate limiting tested under load</li>
+        <li>Authentication flows tested (login, logout, session expiry)</li>
+        <li>Authorization checks verified for protected endpoints</li>
+        <li>SQL injection attempts blocked by parameterized queries</li>
+        <li>XSS protection verified through output escaping</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tabName) {
+  // Hide all sections
+  document.querySelectorAll('.content-section').forEach(section => {
+    section.classList.remove('active');
+  });
+
+  // Remove active from all buttons
+  document.querySelectorAll('.tab-button').forEach(button => {
+    button.classList.remove('active');
+  });
+
+  // Show selected section
+  document.getElementById(tabName).classList.add('active');
+
+  // Mark button as active
+  event.target.classList.add('active');
+}
+
+function toggleTheme() {
+  const root = document.documentElement;
+  const currentTheme = root.getAttribute('data-theme');
+
+  if (currentTheme === 'dark') {
+    root.removeAttribute('data-theme');
+    localStorage.setItem('theme', 'light');
+  } else {
+    root.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+  }
+}
+
+// Initialize theme from localStorage
+(function() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+
+</body>
+</html>

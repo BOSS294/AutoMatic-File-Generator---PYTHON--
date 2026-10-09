@@ -1,23 +1,90 @@
 # modern_directory_creator.py
+"""
+AutoMatic File Generator - Professional Project Structure Generator with Intelligent Branding
+Version: 2.0.0
+Author: Mayank Chawdhari (BOSS294)
+Organization: Privonix Technologies
+"""
+
 import os
 import sys
 import sqlite3
 import platform
 import csv
 import subprocess
+import re
+import json
 from datetime import datetime
 from pathlib import Path
 
 from PyQt5.QtCore import (
-    Qt, QObject, pyqtSignal, QThread, QPropertyAnimation, QEasingCurve, QSize
+    Qt, QObject, pyqtSignal, QThread, QPropertyAnimation, QEasingCurve, QSize,
+    QTimer, QRect, QPoint, QEvent
 )
-from PyQt5.QtGui import QFont, QIcon, QCursor
+from PyQt5.QtGui import (
+    QFont, QIcon, QCursor, QColor, QPalette, QBrush, QPixmap, QPainter
+)
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, QProgressBar,
     QFileDialog, QVBoxLayout, QHBoxLayout, QMessageBox, QComboBox, QCheckBox,
-    QFrame, QSpacerItem, QSizePolicy, QGridLayout
+    QFrame, QSpacerItem, QSizePolicy, QGridLayout, QScrollArea, QListWidget,
+    QListWidgetItem, QDialog, QTabWidget, QStyledItemDelegate
 )
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+
+# ---------- Project Branding System ----------
+class ProjectBranding:
+    """
+    Generates and manages project-specific branding for Connector layer.
+
+    Pattern Examples:
+        "NileAndSinai" -> NSA, nsa_, NileAndSinaiBootstrap, NSA_BOOTSTRAP_VERSION
+        "NexPlacify" -> NXP, nxp_, NexPlacifyBootstrap, NXP_BOOTSTRAP_VERSION
+        "MyProject" -> MP, mp_, MyProjectBootstrap, MP_BOOTSTRAP_VERSION
+    """
+
+    def __init__(self, project_name: str):
+        self.project_name = project_name
+        self.project_key = self._extract_key(project_name)
+        self.project_prefix = self.project_key.lower() + "_"
+        self.bootstrap_class = project_name + "Bootstrap"
+        self.version_constant = self.project_key + "_BOOTSTRAP_VERSION"
+        self.timestamp = datetime.now().isoformat()
+
+    @staticmethod
+    def _extract_key(project_name: str) -> str:
+        """Extract 2-3 letter key from project name (capital letters)."""
+        # First try: take all capital letters
+        key = ''.join([c for c in project_name if c.isupper()])
+
+        if len(key) >= 2:
+            return key[:3]  # Cap at 3 letters
+
+        # Fallback: take first 2-3 letters and uppercase
+        return project_name[:3].upper() if len(project_name) >= 2 else project_name.upper()
+
+    def get_replacements(self) -> dict:
+        """Return all replacement patterns for branding injection."""
+        return {
+            "NileAndSinai": self.project_name,
+            "NSA": self.project_key,
+            "nsa_": self.project_prefix,
+            "NileAndSinaiBootstrap": self.bootstrap_class,
+            "NSA_BOOTSTRAP_VERSION": self.version_constant,
+            "_nsa_": "_" + self.project_prefix,
+            "[NileAndSinai": "[" + self.project_name,
+        }
+
+    def to_dict(self) -> dict:
+        """Return branding as dictionary for documentation."""
+        return {
+            "projectName": self.project_name,
+            "projectKey": self.project_key,
+            "projectPrefix": self.project_prefix,
+            "bootstrapClass": self.bootstrap_class,
+            "versionConstant": self.version_constant,
+            "timestamp": self.timestamp,
+        }
 
 # ---------- Worker to run creation in background ----------
 class CreatorWorker(QObject):
@@ -25,11 +92,12 @@ class CreatorWorker(QObject):
     log = pyqtSignal(str, str)  # message, directory/file name
     finished = pyqtSignal(bool, str)  # success, message
 
-    def __init__(self, base_path: str, structure: dict, extras: dict):
+    def __init__(self, base_path: str, structure: dict, extras: dict, branding: ProjectBranding = None):
         super().__init__()
         self.base_path = base_path
         self.structure = structure
         self.extras = extras
+        self.branding = branding
         self._is_cancelled = False
 
     def cancel(self):
@@ -45,6 +113,8 @@ class CreatorWorker(QObject):
             if self.extras.get("init_git"): extras_count += 1
             if self.extras.get("venv"): extras_count += 1
             if self.extras.get("open_after"): extras_count += 0
+            if self.extras.get("copy_connector"): extras_count += 1
+            if self.extras.get("branding_doc"): extras_count += 1
             total += extras_count
             if total == 0:
                 self.log.emit("Nothing to create.", "")
@@ -93,6 +163,12 @@ class CreatorWorker(QObject):
                     tasks_done += 1
                     emit_progress()
 
+            # Copy and inject Connector if needed
+            if self.extras.get("copy_connector") and self.branding:
+                self._copy_and_inject_connector(tasks_done, total, emit_progress)
+                tasks_done += 1
+                emit_progress()
+
             # extras
             if self.extras.get("readme"):
                 path = os.path.join(self.base_path, "README.md")
@@ -102,6 +178,7 @@ class CreatorWorker(QObject):
                 self.log.emit(f"Created: {path}", "README.md")
                 tasks_done += 1
                 emit_progress()
+
             if self.extras.get("gitignore"):
                 path = os.path.join(self.base_path, ".gitignore")
                 if not os.path.exists(path):
@@ -110,15 +187,15 @@ class CreatorWorker(QObject):
                 self.log.emit(f"Created: {path}", ".gitignore")
                 tasks_done += 1
                 emit_progress()
+
             if self.extras.get("venv"):
                 venv_path = os.path.join(self.base_path, "venv")
-                # create folder as minimal venv placeholder (not a real venv); real venv creation would call venv library
                 os.makedirs(venv_path, exist_ok=True)
                 self.log.emit(f"Created placeholder venv folder: {venv_path}", "venv")
                 tasks_done += 1
                 emit_progress()
+
             if self.extras.get("init_git"):
-                # attempt to init git if git exists
                 try:
                     subprocess.run(["git", "init", self.base_path], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     self.log.emit("Initialized git repository.", "git init")
@@ -127,15 +204,356 @@ class CreatorWorker(QObject):
                 tasks_done += 1
                 emit_progress()
 
+            # Create branding documentation
+            if self.extras.get("branding_doc") and self.branding:
+                self._create_branding_context(tasks_done, total, emit_progress)
+                tasks_done += 1
+                emit_progress()
+
             self.progress.emit(100)
             self.finished.emit(True, "Creation finished successfully")
         except Exception as exc:
             self.finished.emit(False, f"Failed: {exc}")
 
+    def _copy_and_inject_connector(self, tasks_done: int, total: int, emit_progress):
+        """Copy Connector folder and inject project-specific branding."""
+        source_connector = os.path.join(
+            os.path.dirname(__file__), "Connector"
+        )
+        dest_connector = os.path.join(self.base_path, "Assets", "Connector")
+
+        if not os.path.exists(source_connector):
+            self.log.emit(f"Warning: Source Connector not found at {source_connector}", "Connector")
+            return
+
+        # Copy Connector tree
+        os.makedirs(dest_connector, exist_ok=True)
+        self._copy_tree(source_connector, dest_connector)
+        self.log.emit(f"Copied Connector framework", "Connector")
+
+        # Inject branding into all PHP files
+        if self.branding:
+            self._inject_branding_recursive(dest_connector)
+            self.log.emit(f"Injected branding: {self.branding.project_name} ({self.branding.project_key})", "Branding")
+
+    def _copy_tree(self, src: str, dst: str):
+        """Recursively copy directory tree."""
+        for item in os.listdir(src):
+            src_path = os.path.join(src, item)
+            dst_path = os.path.join(dst, item)
+
+            if os.path.isdir(src_path):
+                os.makedirs(dst_path, exist_ok=True)
+                self._copy_tree(src_path, dst_path)
+            else:
+                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+                if not os.path.exists(dst_path):
+                    with open(src_path, 'rb') as f:
+                        content = f.read()
+                    with open(dst_path, 'wb') as f:
+                        f.write(content)
+
+    def _inject_branding_recursive(self, base_path: str):
+        """Recursively inject branding into all PHP files."""
+        replacements = self.branding.get_replacements()
+
+        for root, dirs, files in os.walk(base_path):
+            for file in files:
+                if file.endswith('.php'):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+
+                        # Apply all replacements
+                        for old, new in replacements.items():
+                            content = content.replace(old, new)
+
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            f.write(content)
+
+                        self.log.emit(f"Injected branding in: {file}", file)
+                    except Exception as e:
+                        self.log.emit(f"Error injecting branding in {file}: {e}", file)
+
+    def _create_branding_context(self, tasks_done: int, total: int, emit_progress):
+        """Create CONNECTOR_BRANDING_CONTEXT.md for this project."""
+        doc_path = os.path.join(self.base_path, "CONNECTOR_BRANDING_CONTEXT.md")
+
+        branding_info = self.branding.to_dict()
+
+        doc_content = f"""# {self.branding.project_name} - Connector Branding Context
+
+**Project Name:** {branding_info['projectName']}
+**Project Key:** {branding_info['projectKey']}
+**Function Prefix:** `{branding_info['projectPrefix']}`
+**Bootstrap Class:** `{branding_info['bootstrapClass']}`
+**Version Constant:** `{branding_info['versionConstant']}`
+**Created:** {branding_info['timestamp']}
+
+---
+
+## Quick Reference
+
+All global functions start with `{branding_info['projectPrefix']}`:
+
+### Core Functions
+- `{branding_info['projectPrefix']}bootstrap()` - Initialize Connector with options
+- `{branding_info['projectPrefix']}db()` - Get PDO database instance
+- `{branding_info['projectPrefix']}config(key, default)` - Retrieve configuration value
+- `{branding_info['projectPrefix']}log_error(message)` - Log error to system
+
+### Usage Example
+```php
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__, 4) . '/Connector/_bootstrap.php';
+
+{branding_info['projectPrefix']}bootstrap([
+    'security' => true,
+    'session' => true,
+    'methods' => ['GET', 'POST'],
+    'json' => true,
+]);
+
+$pdo = {branding_info['projectPrefix']}db();
+$config = {branding_info['projectPrefix']}config('APP_ENV', 'production');
+```
+
+---
+
+## File Header Pattern
+
+Every Connector file begins with:
+
+```php
+/**
+ * {branding_info['projectName']} - [Component Description]
+ * Version: 2.0.0
+ *
+ * [Component-specific documentation]
+ */
+```
+
+Example:
+```php
+/**
+ * {branding_info['projectName']} - CSRF Protection
+ * Version: 2.0.0
+ *
+ * Prevents cross-site request forgery attacks...
+ */
+```
+
+---
+
+## Session & Cookie Keys
+
+All session-related keys are prefixed with `_{branding_info['projectPrefix']}`:
+
+- CSRF Token: `_{branding_info['projectPrefix']}csrf_token`
+- Device Fingerprint: `_{branding_info['projectPrefix']}fingerprint`
+- Session: `_{branding_info['projectPrefix']}session_id`
+
+---
+
+## Bootstrap Class
+
+All Connector initialization routes through:
+
+```php
+final class {branding_info['bootstrapClass']}
+{{
+    public static function load(): void {{ ... }}
+    public static function boot(array $options = []): array {{ ... }}
+    public static function db(): PDO {{ ... }}
+}}
+```
+
+### Static Methods
+- `{branding_info['bootstrapClass']}::load()` - Load all Connector classes
+- `{branding_info['bootstrapClass']}::boot(options)` - Boot with specific options
+- `{branding_info['bootstrapClass']}::db()` - Get PDO connection
+
+---
+
+## Version Constant
+
+The Connector infrastructure version for this project:
+
+```php
+const {branding_info['versionConstant']} = '2.0.0';
+```
+
+This constant is used internally to track compatibility. Do **not** change it manually; it's updated only when upgrading the Connector framework.
+
+---
+
+## Error Messages & Logging
+
+Error messages follow this pattern:
+
+```
+[{branding_info['projectName']} Logger Failure] Operation failed
+[{branding_info['projectName']} Blocker Logger Failure] Request blocked
+```
+
+All logging goes through the structured logger in `Assets/Connector/Logger/oLogger.php`.
+
+---
+
+## Connector File Structure
+
+```
+Assets/Connector/
+├── _bootstrap.php              # Entry point (defines {branding_info['bootstrapClass']})
+├── connector.php               # Base environment & security setup
+│
+├── Auth/                       # Authentication layer
+│   ├── Session.php
+│   ├── Jwt.php
+│   ├── Token.php
+│   └── Permissions.php
+│
+├── Database/                   # Database abstraction
+│   ├── Database.php
+│   ├── QueryBuilder.php
+│   └── ConnectionPool.php
+│
+├── Security/                   # Security features
+│   ├── Csrf.php
+│   ├── Headers.php
+│   ├── OriginValidator.php
+│   ├── RateLimiter.php
+│   ├── DeviceFingerprint.php
+│   ├── RequestValidator.php
+│   ├── RequestContext.php
+│   └── Security.php
+│
+├── Logger/                     # Structured logging
+│   ├── oLogger.php
+│   └── LogTypes.php
+│
+├── Helpers/                    # Utility helpers
+│   ├── Response.php
+│   ├── Sanitizer.php
+│   ├── Validator.php
+│   └── Utilities.php
+│
+├── Services/                   # Service layer
+│   ├── CacheService.php
+│   ├── ConfigService.php
+│   ├── HealthService.php
+│   └── ApiExceptionHandler.php
+│
+└── Exceptions/                 # Exception hierarchy
+    ├── AuthenticationException.php
+    ├── AuthorizationException.php
+    ├── ValidationException.php
+    ├── RateLimitException.php
+    └── SecurityException.php
+```
+
+---
+
+## Creating New API Endpoints
+
+Every API endpoint should follow this template:
+
+```php
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__, 4) . '/Connector/_bootstrap.php';
+
+{branding_info['projectPrefix']}bootstrap([
+    'security' => true,
+    'session' => true,
+    'methods' => ['GET', 'POST'],
+    'json' => true,
+]);
+
+// 1. Authenticate
+$userId = $_SESSION['user_id'] ?? null;
+if (!$userId) {{
+    {branding_info['projectPrefix']}json_response(['success' => false, 'message' => 'Unauthorized'], 401);
+}}
+
+// 2. Validate CSRF for state-changing operations
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {{
+    $csrf = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!{branding_info['projectPrefix']}validate_csrf($csrf)) {{
+        {branding_info['projectPrefix']}json_response(['success' => false, 'message' => 'CSRF validation failed'], 403);
+    }}
+}}
+
+// 3. Process request
+try {{
+    $pdo = {branding_info['projectPrefix']}db();
+    // Your business logic here
+
+    {branding_info['projectPrefix']}json_response(['success' => true, 'data' => $result]);
+}} catch (Exception $e) {{
+    {branding_info['projectPrefix']}log_error($e->getMessage());
+    {branding_info['projectPrefix']}json_response(['success' => false, 'message' => 'Server error'], 500);
+}}
+```
+
+---
+
+## Important Notes for AI
+
+This branding system exists to:
+
+1. **Prevent naming collisions** when multiple projects coexist
+2. **Maintain trademark consistency** across the codebase
+3. **Provide instant context** about which project owns a function/class
+4. **Enable automated testing** to verify no cross-project references exist
+
+### Validation Commands
+
+After any Connector changes, run these to ensure branding consistency:
+
+```bash
+# Verify all functions use correct prefix
+grep -r "function {branding_info['projectPrefix']}_" Assets/Connector/
+
+# Verify bootstrap class name
+grep -r "final class {branding_info['bootstrapClass']}" Assets/Connector/
+
+# Verify NO old prefixes remain
+grep -r "nsa_\\|NSA\\|NileAndSinai" Assets/Connector/ # Should be EMPTY
+
+# Verify version constant
+grep -r "const {branding_info['versionConstant']}" Assets/Connector/
+```
+
+### Common Mistakes
+
+- ❌ Forgetting to update session key prefixes (`_{branding_info['projectPrefix']}`)
+- ❌ Leaving old project names in error messages
+- ❌ Creating functions without the `{branding_info['projectPrefix']}_` prefix
+- ❌ Manually editing Connector files that should be auto-generated
+
+---
+
+**Document Version:** 1.0.0
+**For Next AI:** This document was auto-generated. Do not modify the branding patterns without reviewing CONNECTOR_BRANDING_GUIDE.md in the project root.
+
+Reference: See `CONNECTOR_BRANDING_GUIDE.md` for comprehensive technical documentation.
+"""
+
+        try:
+            with open(doc_path, 'w', encoding='utf-8') as f:
+                f.write(doc_content)
+            self.log.emit(f"Created: {doc_path}", "CONNECTOR_BRANDING_CONTEXT.md")
+        except Exception as e:
+            self.log.emit(f"Error creating branding context: {e}", "Error")
+
     def _count_tasks(self, structure):
         total = 0
         for key, val in structure.items():
-            # every directory counted as a task to create (except root placeholder if None)
             total += 1
             if isinstance(val, dict):
                 total += self._count_tasks(val)
@@ -150,7 +568,6 @@ class CreatorWorker(QObject):
         Yields tuples (root_path, [dirs], [files]) similar to os.walk but based
         on our nested structure dict.
         """
-        # We'll build worklist of (root_path, structure_dict)
         stack = [(base_path, structure)]
         while stack:
             root, struct = stack.pop(0)
@@ -160,23 +577,16 @@ class CreatorWorker(QObject):
                 if isinstance(content, dict):
                     dirs.append(name)
                 elif isinstance(content, (list, set, tuple)):
-                    # list/iterable -> create directory 'name' then files inside
                     dirs.append(name)
                 elif content is None:
-                    # file at this level
                     files.append(name)
             yield root, dirs, files
-            # push deeper directories
             for name, content in struct.items():
                 if isinstance(content, dict):
                     stack.append((os.path.join(root, name), content))
                 elif isinstance(content, (list, set, tuple)):
-                    # create the directory, and inside it create listed files
                     inner_files = list(content)
-                    # we simulate a structure where that directory contains those files:
-                    # yield that directory with no further subdirs but with those files
                     yield os.path.join(root, name), [], inner_files
-                # None handled above by files
 
 # ---------- UI helper widgets ----------
 class HoverButton(QPushButton):
@@ -187,8 +597,6 @@ class HoverButton(QPushButton):
         self.setGraphicsEffect(self._shadow)
         self.setCursor(QCursor(Qt.PointingHandCursor))
         self._anim = QPropertyAnimation(self._shadow, b"yOffset")
-        # Note: QGraphicsDropShadowEffect doesn't have direct property access to animate in Qt5,
-        # but we'll emulate a small "press" effect by changing offset on enter/leave via stylesheet +
         self.setStyleSheet(self.default_style())
 
     def enterEvent(self, event):
@@ -247,24 +655,28 @@ class HoverButton(QPushButton):
 class ModernDirectoryCreator(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Modern Project Directory Creator")
-        self.setGeometry(150, 100, 1000, 720)
-        self.setWindowIcon(QIcon())  # Optionally set an icon file path
+        self.setWindowTitle("🚀 AutoMatic File Generator - Professional Project Creator")
+        self.setGeometry(100, 50, 1400, 900)
+        self.setWindowIcon(QIcon())
+        self.setMinimumSize(1200, 800)
 
-        # DB for logs (small)
         self.db_connection = sqlite3.connect("directory_logs_modern.db")
         self._create_logs_table()
 
         self.user_system_name = platform.node()
         self.selected_directory = None
+        self.branding = None
+        self.recent_projects = self._load_recent_projects()
 
-        # Build UI
         self._setup_ui()
         self._apply_styles()
+        self._setup_animations()
 
-        # Threading placeholders
         self.worker_thread = None
         self.worker = None
+
+        # Welcome animation
+        self.show_welcome_message()
 
     def _create_logs_table(self):
         cursor = self.db_connection.cursor()
@@ -283,12 +695,16 @@ class ModernDirectoryCreator(QWidget):
         title.setStyleSheet("color: #e6eef8;")
 
         self.project_name_input = QLineEdit()
-        self.project_name_input.setPlaceholderText("Enter project name (e.g. my-app)")
-        self.project_name_input.setMinimumWidth(260)
+        self.project_name_input.setPlaceholderText("Enter project name (e.g. NileAndSinai, MyProject)")
+        self.project_name_input.setMinimumWidth(300)
+        self.project_name_input.textChanged.connect(self.on_project_name_changed)
+
+        self.branding_label = QLabel("Key: ?, Prefix: ?, Class: ?Bootstrap")
+        self.branding_label.setStyleSheet("color: #9aa8b2; font-family: 'Courier New';")
 
         self.template_combo = QComboBox()
         self.template_combo.addItem("Default Website Template")
-        self.template_combo.addItem("Microservice / API Template")  # example placeholders
+        self.template_combo.addItem("Microservice / API Template")
         self.template_combo.setToolTip("Choose a template layout to pre-populate folders/files")
 
         self.dir_select_button = HoverButton("Select Parent Directory")
@@ -302,9 +718,13 @@ class ModernDirectoryCreator(QWidget):
         self.chk_init_git = QCheckBox("Init git repo (git must be installed)")
         self.chk_venv = QCheckBox("Create placeholder venv folder")
         self.chk_open_after = QCheckBox("Open folder after creation")
-        # default options
+        self.chk_copy_connector = QCheckBox("✓ Copy & inject Connector layer")
+        self.chk_branding_doc = QCheckBox("✓ Create branding context documentation")
+
         self.chk_readme.setChecked(True)
         self.chk_gitignore.setChecked(True)
+        self.chk_copy_connector.setChecked(True)
+        self.chk_branding_doc.setChecked(True)
 
         # Create button and progress bar
         self.create_button = HoverButton("Create Structure")
@@ -344,20 +764,28 @@ class ModernDirectoryCreator(QWidget):
         grid.setSpacing(12)
         grid.addWidget(QLabel("Project Name:"), 0, 0, alignment=Qt.AlignRight)
         grid.addWidget(self.project_name_input, 0, 1)
-        grid.addWidget(QLabel("Template:"), 0, 2, alignment=Qt.AlignRight)
-        grid.addWidget(self.template_combo, 0, 3)
+        grid.addWidget(self.branding_label, 0, 2, 1, 2)
 
-        grid.addWidget(self.dir_select_button, 1, 0)
-        grid.addWidget(self.selected_dir_label, 1, 1, 1, 3)
+        grid.addWidget(QLabel("Template:"), 1, 0, alignment=Qt.AlignRight)
+        grid.addWidget(self.template_combo, 1, 1, 1, 3)
+
+        grid.addWidget(self.dir_select_button, 2, 0)
+        grid.addWidget(self.selected_dir_label, 2, 1, 1, 3)
 
         # options area as a card-like frame
         card = QFrame()
-        card_layout = QHBoxLayout()
-        card_layout.addWidget(self.chk_readme)
-        card_layout.addWidget(self.chk_gitignore)
-        card_layout.addWidget(self.chk_init_git)
-        card_layout.addWidget(self.chk_venv)
-        card_layout.addWidget(self.chk_open_after)
+        card_layout = QVBoxLayout()
+        row1 = QHBoxLayout()
+        row1.addWidget(self.chk_readme)
+        row1.addWidget(self.chk_gitignore)
+        row1.addWidget(self.chk_init_git)
+        row1.addWidget(self.chk_venv)
+        card_layout.addLayout(row1)
+        row2 = QHBoxLayout()
+        row2.addWidget(self.chk_open_after)
+        row2.addWidget(self.chk_copy_connector)
+        row2.addWidget(self.chk_branding_doc)
+        card_layout.addLayout(row2)
         card.setLayout(card_layout)
         card.setFrameShape(QFrame.StyledPanel)
         card.setObjectName("optionsCard")
@@ -381,7 +809,6 @@ class ModernDirectoryCreator(QWidget):
         self.setLayout(main_layout)
 
     def _apply_styles(self):
-        # overall window style
         self.setStyleSheet("""
             QWidget {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
@@ -407,7 +834,7 @@ class ModernDirectoryCreator(QWidget):
             #optionsCard {
                 background: rgba(255,255,255,0.02);
                 border-radius: 12px;
-                padding: 8px;
+                padding: 12px;
             }
             QProgressBar {
                 border-radius: 9px;
@@ -420,6 +847,20 @@ class ModernDirectoryCreator(QWidget):
                     stop:0 #6ad1ff, stop:1 #2b8cff);
             }
         """)
+
+    def on_project_name_changed(self):
+        """Update branding preview as user types project name."""
+        project_name = self.project_name_input.text().strip()
+        if project_name:
+            self.branding = ProjectBranding(project_name)
+            self.branding_label.setText(
+                f"Key: {self.branding.project_key}, "
+                f"Prefix: {self.branding.project_prefix} "
+                f"Class: {self.branding.bootstrap_class}"
+            )
+        else:
+            self.branding = None
+            self.branding_label.setText("Key: ?, Prefix: ?, Class: ?Bootstrap")
 
     def select_directory(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Parent Directory", os.path.expanduser("~"))
@@ -443,11 +884,9 @@ class ModernDirectoryCreator(QWidget):
         project_path = os.path.join(self.selected_directory, project_name)
         if os.path.exists(project_path):
             resp = QMessageBox.question(self, "Already exists", f"Project path already exists:\n{project_path}\nOverwrite / add into it?")
-            # if user cancels, stop
             if resp == QMessageBox.Cancel:
                 return
 
-        # choose template -> map to structure
         template_name = self.template_combo.currentText()
         structure = self._get_template_structure(template_name)
 
@@ -457,14 +896,14 @@ class ModernDirectoryCreator(QWidget):
             "init_git": self.chk_init_git.isChecked(),
             "venv": self.chk_venv.isChecked(),
             "open_after": self.chk_open_after.isChecked(),
+            "copy_connector": self.chk_copy_connector.isChecked(),
+            "branding_doc": self.chk_branding_doc.isChecked(),
         }
 
-        # disable/enable buttons
         self.create_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
 
-        # start worker thread
-        self.worker = CreatorWorker(project_path, structure, extras)
+        self.worker = CreatorWorker(project_path, structure, extras, self.branding)
         self.worker_thread = QThread()
         self.worker.moveToThread(self.worker_thread)
         self.worker_thread.started.connect(self.worker.run)
@@ -492,7 +931,7 @@ class ModernDirectoryCreator(QWidget):
         self.create_button.setEnabled(True)
         self.cancel_button.setEnabled(False)
         self.progress_bar.setValue(100 if success else 0)
-        # write final log to DB
+
         if self.selected_directory:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cursor = self.db_connection.cursor()
@@ -500,7 +939,6 @@ class ModernDirectoryCreator(QWidget):
                            (self.project_name_input.text().strip(), self.user_system_name, timestamp, self.selected_directory))
             self.db_connection.commit()
 
-        # Open folder if user requested and successful
         if success and self.chk_open_after.isChecked():
             try:
                 path_to_open = os.path.join(self.selected_directory, self.project_name_input.text().strip())
@@ -518,7 +956,6 @@ class ModernDirectoryCreator(QWidget):
     def append_log(self, message: str, name: str):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.logs_area.append(f"[{ts}] {message}")
-        # Also insert compact log into DB if name provided
         if name:
             try:
                 cursor = self.db_connection.cursor()
@@ -562,64 +999,217 @@ class ModernDirectoryCreator(QWidget):
         event.accept()
 
     def _get_template_structure(self, template_name: str):
-        # A more complete / nested structure mapping - feel free to extend templates
+        """
+        Updated template structure based on NileAndSinaiV2 and NexPlacify patterns.
+
+        Key Changes:
+        - Resources/ folder removed (now using Modules/)
+        - API endpoints organized under Api/V1/ (versioned)
+        - Proper separation: Website (public), Accounts (user), Admins (admin)
+        - Services/ for business logic
+        - Modules/ for reusable components (nav, footer, etc.)
+        """
         default = {
             'Assets': {
-                'Accounts': {
-                    'Contents': {},
-                    'Pages': ['login.php', 'register.php', 'user-dashboard.php'],
-                    'Processors': ['login-endpoint.php', 'register-endpoint.php', 'userinfo-endpoint.php', 'logout-endpoint.php'],
-                    'Scripts': ['accounts.js'],
-                    'Styles': {},
-                },
-                'Admins': {
-                    'Contents': ['admin-login-page.php','admin-cards.php','admin-analytics.php'],
-                    'Pages': ['admin-dashboard.php','admin-access.php','admin-logout.php'],
-                    'Processors': ['admin-access-endpoint.php','admin-logout-endpoint.php'],
-                    'Scripts': ['admin-notifications.js'],
-                    'Resources': ['anav.php'],
-                    'Styles': {},
-                },
-                'Resources': {
-                    'File Dumping': {},
-                },
-                'Extras': {
-                    'Connections': {},
-                    'Documentations': {},
-                    'Helps': {},
-                    'Updates': {},
-                },
+                # Website (Public-facing site)
                 'Website': {
-                    'Contents': {},
+                    'Contents': {
+                        'Landing': {},  # Landing page sections
+                        'Pages': {},    # Page-specific components
+                    },
+                    'Pages': [
+                        'index.php',
+                        'about-us.php',
+                        'contact.php',
+                        'faqs.php',
+                        'privacy-policy.php',
+                        'terms-conditions.php',
+                    ],
+                    'Api': {
+                        'V1': {
+                            'Pages': [
+                                'contact-engine.php',
+                                'faqs-engine.php',
+                            ],
+                        },
+                    },
                     'Images': {},
-                    'Pages': ['about-us.php', 'contact.php', 'faqs.php', 'privacy-policy.php', 'terms-conditions.php'],
-                    'Processors': {},
                     'Scripts': ['main.js'],
-                    'Styles': {},
+                    'Styles': ['main.css'],
                     'Videos': {},
                 },
+
+                # Accounts (User authentication & profile)
+                'Accounts': {
+                    'Contents': {
+                        'Auth': {},      # Login/register components
+                        'Profile': {},   # Profile page components
+                        'Dashboard': {}, # Dashboard components
+                    },
+                    'Pages': [
+                        'login.php',
+                        'register.php',
+                        'dashboard.php',
+                        'profile.php',
+                        'settings.php',
+                    ],
+                    'Api': {
+                        'V1': {
+                            'Auth': [
+                                'login.php',
+                                'register.php',
+                                'logout.php',
+                                'me.php',
+                                'csrf.php',
+                            ],
+                            'Profile': [
+                                'overview.php',
+                                'update.php',
+                                'picture.php',
+                            ],
+                            'Dashboard': [
+                                'overview.php',
+                            ],
+                            'Settings': [
+                                'overview.php',
+                                'update.php',
+                                'password.php',
+                            ],
+                        },
+                    },
+                    'Scripts': ['accounts.js'],
+                    'Styles': ['accounts.css'],
+                },
+
+                # Admins (Admin panel)
+                'Admins': {
+                    'Contents': {
+                        'Dashboard': {},  # Admin dashboard components
+                        'Analytics': {},  # Analytics components
+                        'Management': {}, # Management components
+                    },
+                    'Pages': [
+                        'login.php',
+                        'dashboard.php',
+                        'analytics.php',
+                        'users.php',
+                        'settings.php',
+                    ],
+                    'Api': {
+                        'V1': {
+                            'Auth': [
+                                'login.php',
+                                'logout.php',
+                                'me.php',
+                            ],
+                            'Dashboard': [
+                                'stats.php',
+                                'overview.php',
+                            ],
+                            'Users': [
+                                'list.php',
+                                'get.php',
+                                'update.php',
+                            ],
+                        },
+                    },
+                    'Scripts': ['admin.js'],
+                    'Styles': ['admin.css'],
+                },
+
+                # Services (Business logic layer)
+                'Services': {
+                    'Accounts': {
+                        '__init__.php': None,
+                    },
+                    'Auth': {
+                        '__init__.php': None,
+                    },
+                    'Products': {
+                        '__init__.php': None,
+                    },
+                    'Email': {
+                        '__init__.php': None,
+                    },
+                },
+
+                # Modules (Reusable components - replaces Resources)
+                'Modules': {
+                    'nav.php': None,
+                    'footer.php': None,
+                    'seo.php': None,
+                    'base.css': None,
+                    'shared-scripts.js': None,
+                },
+
+                # Extras (Documentation, SQL, Updates)
+                'Extras': {
+                    'Documentations': {
+                        'README.md': None,
+                    },
+                    'Sqls': {
+                        'auth_schema_v1.sql': None,
+                        'migrations.md': None,
+                    },
+                    'Updates': {
+                        'CHANGELOG.md': None,
+                    },
+                    'Connections': {},
+                },
+
+                # Miscellaneous (Testing, context, etc.)
                 'Miscellaneous': {
                     'Context': {},
                     'Information': {},
-                    'File Dumping': {},
-                    'Testing Purpose': {},
+                    'Testing': {},
                 },
             },
+
+            # Root-level files
             'index.php': None,
+            '.env': None,
+            '.env.example': None,
+            'composer.json': None,
+            'composer.lock': None,
+            '.gitignore': None,
+            '.htaccess': None,
         }
+
+        # Microservice template (for API-only projects)
         microservice = {
             'src': {
-                'controllers': {},
-                'models': {},
-                'routes': ['api.py'],
-                'utils': {},
+                'Api': {
+                    'V1': {
+                        'Controllers': {},
+                        'Middleware': {},
+                    },
+                },
+                'Services': {},
+                'Models': {},
+                'Database': {},
+                'Utils': {},
             },
-            'tests': {},
-            'docs': {},
+            'config': {
+                'app.php': None,
+                'database.php': None,
+            },
+            'tests': {
+                'Unit': {},
+                'Integration': {},
+            },
+            'docs': {
+                'API.md': None,
+            },
+            'public': {
+                'index.php': None,
+            },
             'Dockerfile': None,
-            'requirements.txt': None,
-            'main.py': None,
+            'docker-compose.yml': None,
+            '.env': None,
+            '.env.example': None,
+            'composer.json': None,
         }
+
         if "micro" in template_name.lower():
             return microservice
         return default
